@@ -37,35 +37,11 @@ class DepressionModelManager:
         accuracy = accuracy_score(labels, predictions)
         return accuracy, f1
     
-    def vs_update_model(self, user_id, X_train, y_train, X_test, y_test):
-        user_model = self.get_model(user_id)
-
-        for layer in user_model.layers[:-1]:
-            layer.trainable = False
-        user_model.layers[-1].trainable = True
-
-        optimizer = tf.keras.optimizers.Adam(learning_rate=1e-3)
-
-        user_model.compile(optimizer=optimizer, loss='binary_crossentropy', metrics=['accuracy'])
-        user_model.fit(X_train, y_train, epochs=500, batch_size=8) # Reduced the epochs for less intensive fine-tuning
-        fine_tuned_accuracy, fine_tuned_f1 = self.evaluate_model(user_model, X_test, y_test)
-
-        predictions_after = user_model.predict(X_test)
-        predictions_after = (predictions_after > 0.5).astype(int)
-        conf_matrix = confusion_matrix(y_test, predictions_after)
-        report = classification_report(y_test, predictions_after)
-
-        user_model.save(os.path.join(self.models_dir, f"{user_id}.h5"))
-        return fine_tuned_accuracy, fine_tuned_f1, conf_matrix, report
-    
     def update_model(self, user_id, data, labels):
         base_model = tf.keras.models.load_model(self.base_model_path)
 
         user_model = self.get_model(user_id)
         data = data.drop("docId", axis = 1)
-
-        print(data.shape)
-        print(data)
 
         data = np.array(data)
         labels = np.array(labels)
@@ -73,14 +49,6 @@ class DepressionModelManager:
         #Split data into training and testing:
         X_train, X_test, y_train, y_test = train_test_split(data, labels, test_size=0.3, random_state=42, stratify=labels)
         base_accuracy, base_f1 = self.evaluate_model(base_model, X_test, y_test)
-
-        # X_train = X_train.astype('float32')
-        # X_train = np.array(X_train)
-        # y_train = np.array(y_train)
-        # X_train = tf.convert_to_tensor(X_train)
-        print("TRAINNNNNNNNN")
-        print(X_train.shape)
-        print(user_id)
 
         for layer in user_model.layers[:-1]:
             layer.trainable = False
@@ -96,14 +64,9 @@ class DepressionModelManager:
 
         predictions_after = user_model.predict(X_test)
         predictions_after = (predictions_after > 0.5).astype(int)
-        conf_matrix = confusion_matrix(y_test, predictions_after)
-        report = classification_report(y_test, predictions_after)
-        print(conf_matrix)
-        print(report)
 
         user_model.save(os.path.join(self.models_dir, f"{user_id}.h5"))
         return fine_tuned_accuracy, fine_tuned_f1, base_accuracy, base_f1
-        # return fine_tuned_accuracy, fine_tuned_f1, base_accuracy, base_f1
     
     def get_best_model(self, user_id, model):
         if model == 'base':
